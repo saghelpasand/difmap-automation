@@ -1,0 +1,76 @@
+!
+! Difmap script testmap
+!
+! Usage: @contmap <dointer>
+!        <dointer>  true/false
+!
+observe mysource.uvf
+select I
+clrmod true
+uncalib true, true, true
+!
+! set up natural weighting for images
+! make a large map to find location of source
+! 
+uvw 2,-1
+mapsize 1024
+!
+! shift to the map peak
+!
+shift -peak(x, max), -peak(y, max)
+!
+! make a smaller map to avoid side-lobes
+!
+mapsize 512
+!
+! variables to keep track of rms
+!
+float map_rms
+float snr
+!
+! Start with a point model and do a gentle phase cal
+addcmp peak(flux,max),true,peak(x,max),peak(y,max),true, 0.0,false,1,false,0,false
+modelfit 50
+selfcal false, false, 20
+clrmod true
+!
+! re-shift to the map peak
+!
+shift -peak(x, max), -peak(y, max)
+!
+!
+! define a Gaussian "clean" algorithm
+#+gauss_clean \
+  addcmp peak(flux,max),true,peak(x,max),peak(y,max),true, 2.0,true,1,true,0,true;\
+  modelfit 50;\
+  map_rms = imstat(rms);\
+  snr = peak(flux, max) / map_rms;\
+  while (snr > 5);\ 
+      addcmp peak(flux,max),true,peak(x,max),peak(y,max),true, 2.0,true,1,true,0,true;\
+      modelfit 100;\
+      map_rms = imstat(rms);\
+      snr = peak(flux, max) / map_rms;\
+  end while
+!
+! clean and 10 m phase-only selfcal
+!
+gauss_clean	
+selfcal false, false, 10
+!
+! repeat gauss cleaning, dropping the self-cal interval
+!
+gauss_clean	
+selfcal false, false, 5
+!
+gauss_clean
+selfcal false, false, 2
+!
+! run a gscale to fix amplitude scaling
+! 
+gscale
+modelfit 100
+
+!
+mapsize 2048
+mappl cln
+
